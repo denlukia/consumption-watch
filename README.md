@@ -4,6 +4,8 @@ Background MacBook energy monitor. Samples Apple SMC / battery telemetry via `io
 
 Works with **Node.js ≥ 22.5** (`node:sqlite`) or **Bun**.
 
+![Consumption Watch dashboard](docs/dashboard.png)
+
 ## What it tracks
 
 | Series | Source | Meaning |
