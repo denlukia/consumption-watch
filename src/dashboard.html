@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Consumption Watch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg0: #dfe6ea;
+        --bg1: #cfd9df;
+        --ink: #152028;
+        --muted: #5b6b76;
+        --line: rgba(21, 32, 40, 0.12);
+        --panel: rgba(255, 255, 255, 0.55);
+        --system: #0f7a6c;
+        --wall: #c45c26;
+        --battery: #2f5f8a;
+        --live: #1a8f3c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        color: var(--ink);
+        font-family: "Sora", sans-serif;
+        background:
+          radial-gradient(900px 500px at 10% -10%, rgba(15, 122, 108, 0.16), transparent 60%),
+          radial-gradient(700px 420px at 100% 0%, rgba(196, 92, 38, 0.12), transparent 55%),
+          linear-gradient(160deg, var(--bg0), var(--bg1));
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.35;
+        background-image:
+          linear-gradient(var(--line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--line) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: radial-gradient(circle at 50% 20%, black, transparent 75%);
+      }
+
+      main {
+        position: relative;
+        width: min(1120px, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 2rem 0 3rem;
+      }
+
+      header {
+        display: grid;
+        gap: 0.6rem;
+        margin-bottom: 1.75rem;
+        animation: rise 0.7s ease both;
+      }
+
+      .brand {
+        font-size: clamp(2rem, 5vw, 3.1rem);
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        line-height: 1;
+      }
+
+      .lede {
+        max-width: 38rem;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.45;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+
+      .dot {
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 50%;
+        background: var(--live);
+        box-shadow: 0 0 0 0 rgba(26, 143, 60, 0.55);
+        animation: pulse 2s ease-out infinite;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .metric {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        backdrop-filter: blur(8px);
+        padding: 1rem 1.05rem 0.95rem;
+        animation: rise 0.7s ease both;
+      }
+
+      .metric:nth-child(1) {
+        animation-delay: 0.05s;
+      }
+      .metric:nth-child(2) {
+        animation-delay: 0.1s;
+      }
+      .metric:nth-child(3) {
+        animation-delay: 0.15s;
+      }
+      .metric:nth-child(4) {
+        animation-delay: 0.2s;
+      }
+
+      .metric .label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      .metric .value {
+        margin-top: 0.45rem;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: clamp(1.35rem, 3vw, 1.85rem);
+        font-weight: 600;
+        letter-spacing: -0.03em;
+      }
+
+      .metric .sub {
+        margin-top: 0.25rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .panels {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        backdrop-filter: blur(8px);
+        padding: 1.1rem 1.15rem 1.2rem;
+        animation: rise 0.75s ease both;
+        animation-delay: 0.22s;
+      }
+
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1rem;
+        margin-bottom: 0.85rem;
+      }
+
+      .panel h2 {
+        margin: 0;
+        font-size: 1.05rem;
+        letter-spacing: -0.02em;
+      }
+
+      .series-switch {
+        display: inline-flex;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.45);
+        padding: 0.2rem;
+        gap: 0.15rem;
+        margin-bottom: 1rem;
+        animation: rise 0.7s ease both;
+        animation-delay: 0.18s;
+      }
+
+      .series-switch button {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 0.45rem 0.75rem;
+        cursor: pointer;
+      }
+
+      .series-switch button[aria-pressed="true"] {
+        color: #fff;
+        background: var(--accent, var(--system));
+      }
+
+      .series-switch[data-series="system"] {
+        --accent: var(--system);
+      }
+      .series-switch[data-series="wall"] {
+        --accent: var(--wall);
+      }
+      .series-switch[data-series="battery"] {
+        --accent: var(--battery);
+      }
+
+      .chart {
+        position: relative;
+        height: 240px;
+      }
+
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .empty {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(26, 143, 60, 0.45);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(26, 143, 60, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(26, 143, 60, 0);
+        }
+      }
+
+      @media (max-width: 860px) {
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 520px) {
+        .metrics {
+          grid-template-columns: 1fr;
+        }
+        .panel-head {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="brand">Consumption Watch</div>
+        <p class="lede">
+          Live MacBook energy use in watt-hours — system draw, wall/plug intake, and battery
+          discharge.
+        </p>
+        <div class="status">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="statusText">connecting…</span>
+        </div>
+      </header>
+
+      <section class="metrics" aria-label="Live metrics">
+        <article class="metric">
+          <div class="label">System now</div>
+          <div class="value" id="systemNow">—</div>
+          <div class="sub" id="sourceSub">source</div>
+        </article>
+        <article class="metric">
+          <div class="label">Wall / plug now</div>
+          <div class="value" id="wallNow">—</div>
+          <div class="sub">adapter input</div>
+        </article>
+        <article class="metric">
+          <div class="label">Today (system)</div>
+          <div class="value" id="todaySystem">—</div>
+          <div class="sub" id="todayWall">wall —</div>
+        </article>
+        <article class="metric">
+          <div class="label">All-time (system)</div>
+          <div class="value" id="allSystem">—</div>
+          <div class="sub" id="allWall">wall —</div>
+        </article>
+      </section>
+
+      <div
+        class="series-switch"
+        id="seriesSwitch"
+        data-series="system"
+        role="group"
+        aria-label="Chart series"
+      >
+        <button type="button" data-series="system" aria-pressed="true">System</button>
+        <button type="button" data-series="wall" aria-pressed="false">Wall</button>
+        <button type="button" data-series="battery" aria-pressed="false">Battery</button>
+      </div>
+
+      <section class="panels">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>By hour (last 48h)</h2>
+          </div>
+          <div class="chart">
+            <canvas id="hourChart"></canvas>
+            <div class="empty" id="hourEmpty" hidden>Collecting samples…</div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>By day (last 30d)</h2>
+          </div>
+          <div class="chart">
+            <canvas id="dayChart"></canvas>
+            <div class="empty" id="dayEmpty" hidden>Collecting samples…</div>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const fmtW = (mw) => {
+        if (mw == null || Number.isNaN(mw)) return "—";
+        const w = mw / 1000;
+        return `${w.toFixed(w >= 10 ? 1 : 2)} W`;
+      };
+
+      const fmtWh = (mwh) => {
+        if (mwh == null || Number.isNaN(mwh)) return "—";
+        const wh = mwh / 1000;
+        if (wh >= 100) return `${wh.toFixed(0)} Wh`;
+        if (wh >= 10) return `${wh.toFixed(1)} Wh`;
+        return `${wh.toFixed(2)} Wh`;
+      };
+
+      const SERIES = {
+        system: { key: "system_mwh", color: "#0f7a6c" },
+        wall: { key: "wall_mwh", color: "#c45c26" },
+        battery: { key: "battery_discharge_mwh", color: "#2f5f8a" },
+      };
+
+      let activeSeries = "system";
+      let latestHours = [];
+      let latestDays = [];
+
+      function seriesValue(row, series = activeSeries) {
+        return row[SERIES[series].key] ?? 0;
+      }
+
+      function drawBars(canvas, rows, labelFn, series = activeSeries) {
+        const ctx = canvas.getContext("2d");
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = canvas.clientWidth;
+        const cssH = canvas.clientHeight;
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(cssH * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cssW, cssH);
+
+        if (!rows.length) return false;
+
+        const pad = { t: 12, r: 8, b: 28, l: 42 };
+        const plotW = cssW - pad.l - pad.r;
+        const plotH = cssH - pad.t - pad.b;
+        const maxMwh = Math.max(...rows.map((r) => seriesValue(r, series)), 1);
+        const niceMax = maxMwh * 1.15;
+        const groupW = plotW / rows.length;
+        const barW = Math.max(3, Math.min(18, groupW * 0.55));
+        const color = SERIES[series].color;
+
+        ctx.strokeStyle = "rgba(21,32,40,0.1)";
+        ctx.fillStyle = "#5b6b76";
+        ctx.font = "11px IBM Plex Mono, monospace";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        for (let i = 0; i <= 4; i++) {
+          const y = pad.t + (plotH * i) / 4;
+          const val = niceMax * (1 - i / 4);
+          ctx.beginPath();
+          ctx.moveTo(pad.l, y);
+          ctx.lineTo(cssW - pad.r, y);
+          ctx.stroke();
+          ctx.fillText(fmtWh(val).replace(" Wh", ""), pad.l - 6, y);
+        }
+
+        rows.forEach((row, i) => {
+          const mwh = seriesValue(row, series);
+          const h = (mwh / niceMax) * plotH;
+          const x = pad.l + i * groupW + (groupW - barW) / 2;
+          const y = pad.t + plotH - h;
+          ctx.fillStyle = color;
+          ctx.globalAlpha = 0.92;
+          ctx.fillRect(x, y, barW, Math.max(h, mwh > 0 ? 1.5 : 0));
+          ctx.globalAlpha = 1;
+
+          if (i % Math.ceil(rows.length / 8) === 0 || i === rows.length - 1) {
+            ctx.fillStyle = "#5b6b76";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "top";
+            ctx.fillText(labelFn(row), pad.l + i * groupW + groupW / 2, pad.t + plotH + 8);
+          }
+        });
+
+        return true;
+      }
+
+      function renderCharts() {
+        const hourOk = drawBars(
+          document.getElementById("hourChart"),
+          latestHours,
+          (r) => {
+            const d = new Date(r.hour_ts * 1000);
+            return `${d.getHours()}:00`;
+          },
+        );
+        const dayOk = drawBars(
+          document.getElementById("dayChart"),
+          latestDays,
+          (r) => {
+            const d = new Date(r.day_ts * 1000);
+            return `${d.getMonth() + 1}/${d.getDate()}`;
+          },
+        );
+        document.getElementById("hourEmpty").hidden = hourOk;
+        document.getElementById("dayEmpty").hidden = dayOk;
+      }
+
+      function setSeries(series) {
+        if (!SERIES[series]) return;
+        activeSeries = series;
+        const switchEl = document.getElementById("seriesSwitch");
+        switchEl.dataset.series = activeSeries;
+        for (const btn of switchEl.querySelectorAll("button")) {
+          btn.setAttribute("aria-pressed", btn.dataset.series === activeSeries ? "true" : "false");
+        }
+        renderCharts();
+      }
+
+      function fillHours(apiHours) {
+        const now = new Date();
+        now.setMinutes(0, 0, 0);
+        const map = new Map(apiHours.map((h) => [h.hour_ts, h]));
+        const out = [];
+        for (let i = 47; i >= 0; i--) {
+          const ts = Math.floor(now.getTime() / 1000) - i * 3600;
+          const hit = map.get(ts);
+          out.push(
+            hit ?? {
+              hour_ts: ts,
+              system_mwh: 0,
+              wall_mwh: 0,
+              battery_discharge_mwh: 0,
+            },
+          );
+        }
+        return out;
+      }
+
+      function fillDays(apiDays) {
+        const map = new Map(apiDays.map((d) => [d.day_ts, d]));
+        const out = [];
+        for (let i = 29; i >= 0; i--) {
+          const d = new Date();
+          d.setHours(0, 0, 0, 0);
+          d.setDate(d.getDate() - i);
+          const dayTs = Math.floor(d.getTime() / 1000);
+          const hit = map.get(dayTs);
+          out.push(
+            hit ?? {
+              day_ts: dayTs,
+              system_mwh: 0,
+              wall_mwh: 0,
+              battery_discharge_mwh: 0,
+            },
+          );
+        }
+        return out;
+      }
+
+      async function refresh() {
+        const res = await fetch("/api/stats");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        const live = data.live;
+        document.getElementById("systemNow").textContent = fmtW(live?.system_mw);
+        document.getElementById("wallNow").textContent = fmtW(live?.wall_mw);
+        const source = live
+          ? live.on_ac
+            ? live.is_charging
+              ? "AC · charging"
+              : "AC · charged / holding"
+            : "battery"
+          : "—";
+        document.getElementById("sourceSub").textContent = source;
+
+        document.getElementById("todaySystem").textContent = fmtWh(data.today.system_mwh);
+        document.getElementById("todayWall").textContent = `wall ${fmtWh(data.today.wall_mwh)}`;
+        document.getElementById("allSystem").textContent = fmtWh(data.totals.system_mwh);
+        document.getElementById("allWall").textContent = `wall ${fmtWh(data.totals.wall_mwh)}`;
+
+        latestHours = fillHours(data.hourly);
+        latestDays = fillDays(data.daily);
+        renderCharts();
+
+        const ageSec = live ? Math.max(0, Math.round((Date.now() - live.ts) / 1000)) : null;
+        document.getElementById("statusText").textContent =
+          ageSec == null
+            ? "waiting for first sample"
+            : `live · sample ${ageSec}s ago · port ${location.port || "80"}`;
+      }
+
+      async function loop() {
+        try {
+          await refresh();
+        } catch (err) {
+          document.getElementById("statusText").textContent = `error · ${err.message}`;
+        }
+      }
+
+      document.getElementById("seriesSwitch").addEventListener("click", (event) => {
+        const btn = event.target.closest("button[data-series]");
+        if (!btn) return;
+        setSeries(btn.dataset.series);
+      });
+
+      loop();
+      setInterval(loop, 5000);
+      window.addEventListener("resize", () => {
+        renderCharts();
+      });
+    </script>
+  </body>
+</html>

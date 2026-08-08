@@ -1,0 +1,19 @@
+{
+  "name": "consumption-watch",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types src/index.ts",
+    "start:bun": "bun run src/index.ts",
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "dev:bun": "bun --watch run src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^24.0.0"
+  }
+}
