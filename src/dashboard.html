@@ -154,6 +154,7 @@
 
       .panels {
         display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 1rem;
       }
 
@@ -164,6 +165,7 @@
         padding: 1.1rem 1.15rem 1.2rem;
         animation: rise 0.75s ease both;
         animation-delay: 0.22s;
+        overflow: visible;
       }
 
       .panel-head {
@@ -222,6 +224,7 @@
       .chart {
         position: relative;
         height: 240px;
+        overflow: visible;
       }
 
       canvas {
@@ -230,13 +233,47 @@
         display: block;
       }
 
-      .empty {
+      .chart-tip {
+        position: fixed;
+        z-index: 1000;
+        pointer-events: none;
+        opacity: 0;
+        left: 0;
+        top: 0;
+        transform: translate(-50%, calc(-100% - 10px));
+        background: #152028;
+        color: #f3f6f8;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 0.72rem;
+        line-height: 1.35;
+        padding: 0.4rem 0.55rem;
+        white-space: nowrap;
+        transition: opacity 0.12s ease;
+      }
+
+      .chart-tip::after {
+        content: "";
         position: absolute;
-        inset: 0;
-        display: grid;
-        place-items: center;
-        color: var(--muted);
-        font-size: 0.9rem;
+        left: calc(50% + var(--arrow-shift, 0px));
+        top: 100%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-top-color: #152028;
+      }
+
+      .chart-tip[data-placement="below"] {
+        transform: translate(-50%, 10px);
+      }
+
+      .chart-tip[data-placement="below"]::after {
+        top: auto;
+        bottom: 100%;
+        border-top-color: transparent;
+        border-bottom-color: #152028;
+      }
+
+      .chart-tip[data-show="true"] {
+        opacity: 1;
       }
 
       @keyframes rise {
@@ -265,6 +302,9 @@
       @media (max-width: 860px) {
         .metrics {
           grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .panels {
+          grid-template-columns: 1fr;
         }
       }
 
@@ -333,9 +373,8 @@
           <div class="panel-head">
             <h2>By hour (last 48h)</h2>
           </div>
-          <div class="chart">
+          <div class="chart" data-chart="hour">
             <canvas id="hourChart"></canvas>
-            <div class="empty" id="hourEmpty" hidden>Collecting samples…</div>
           </div>
         </article>
 
@@ -343,13 +382,14 @@
           <div class="panel-head">
             <h2>By day (last 30d)</h2>
           </div>
-          <div class="chart">
+          <div class="chart" data-chart="day">
             <canvas id="dayChart"></canvas>
-            <div class="empty" id="dayEmpty" hidden>Collecting samples…</div>
           </div>
         </article>
       </section>
     </main>
+
+    <div class="chart-tip" id="chartTip" hidden></div>
 
     <script>
       const fmtW = (mw) => {
@@ -367,20 +407,24 @@
       };
 
       const SERIES = {
-        system: { key: "system_mwh", color: "#0f7a6c" },
-        wall: { key: "wall_mwh", color: "#c45c26" },
-        battery: { key: "battery_discharge_mwh", color: "#2f5f8a" },
+        system: { key: "system_mwh", color: "#0f7a6c", label: "System" },
+        wall: { key: "wall_mwh", color: "#c45c26", label: "Wall" },
+        battery: { key: "battery_discharge_mwh", color: "#2f5f8a", label: "Battery" },
       };
 
       let activeSeries = "system";
       let latestHours = [];
       let latestDays = [];
+      const chartHits = {
+        hour: [],
+        day: [],
+      };
 
       function seriesValue(row, series = activeSeries) {
         return row[SERIES[series].key] ?? 0;
       }
 
-      function drawBars(canvas, rows, labelFn, series = activeSeries) {
+      function drawBars(canvas, rows, labelFn, chartKey, series = activeSeries) {
         const ctx = canvas.getContext("2d");
         const dpr = window.devicePixelRatio || 1;
         const cssW = canvas.clientWidth;
@@ -389,8 +433,9 @@
         canvas.height = Math.floor(cssH * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, cssW, cssH);
+        chartHits[chartKey] = [];
 
-        if (!rows.length) return false;
+        if (!rows.length) return;
 
         const pad = { t: 12, r: 8, b: 28, l: 42 };
         const plotW = cssW - pad.l - pad.r;
@@ -420,42 +465,154 @@
           const mwh = seriesValue(row, series);
           const h = (mwh / niceMax) * plotH;
           const x = pad.l + i * groupW + (groupW - barW) / 2;
-          const y = pad.t + plotH - h;
+          const barH = Math.max(h, mwh > 0 ? 1.5 : 0);
+          const y = pad.t + plotH - barH;
+          // Full column hit target so near-zero bars are still hoverable.
+          const hitX = pad.l + i * groupW;
+          chartHits[chartKey].push({
+            x: hitX,
+            y: pad.t,
+            w: groupW,
+            h: plotH,
+            tipX: x + barW / 2,
+            tipY: y,
+            label: labelFn(row),
+            mwh,
+          });
+
           ctx.fillStyle = color;
           ctx.globalAlpha = 0.92;
-          ctx.fillRect(x, y, barW, Math.max(h, mwh > 0 ? 1.5 : 0));
+          ctx.fillRect(x, y, barW, barH);
           ctx.globalAlpha = 1;
-
-          if (i % Math.ceil(rows.length / 8) === 0 || i === rows.length - 1) {
-            ctx.fillStyle = "#5b6b76";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "top";
-            ctx.fillText(labelFn(row), pad.l + i * groupW + groupW / 2, pad.t + plotH + 8);
-          }
         });
 
-        return true;
+        // Pick X labels by available width so they never overlap.
+        ctx.fillStyle = "#5b6b76";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        const labelYs = pad.t + plotH + 8;
+        const minGap = 8;
+        let lastRight = -Infinity;
+        const labelIndexes = [];
+        for (let i = 0; i < rows.length; i++) {
+          const text = labelFn(rows[i]);
+          const tw = ctx.measureText(text).width;
+          const cx = pad.l + i * groupW + groupW / 2;
+          const left = cx - tw / 2;
+          if (left >= lastRight + minGap) {
+            labelIndexes.push(i);
+            lastRight = cx + tw / 2;
+          }
+        }
+        // Always try to keep the last label if it fits without colliding hard.
+        const last = rows.length - 1;
+        if (last >= 0 && !labelIndexes.includes(last)) {
+          const text = labelFn(rows[last]);
+          const tw = ctx.measureText(text).width;
+          const cx = pad.l + last * groupW + groupW / 2;
+          const prev = labelIndexes[labelIndexes.length - 1];
+          if (prev == null) {
+            labelIndexes.push(last);
+          } else {
+            const prevText = labelFn(rows[prev]);
+            const prevTw = ctx.measureText(prevText).width;
+            const prevCx = pad.l + prev * groupW + groupW / 2;
+            if (cx - tw / 2 >= prevCx + prevTw / 2 + minGap) {
+              labelIndexes.push(last);
+            } else if (labelIndexes.length > 1) {
+              // Drop previous edge label so the latest tick stays readable.
+              labelIndexes[labelIndexes.length - 1] = last;
+            } else {
+              labelIndexes[0] = last;
+            }
+          }
+        }
+        for (const i of labelIndexes) {
+          ctx.fillText(labelFn(rows[i]), pad.l + i * groupW + groupW / 2, labelYs);
+        }
       }
 
       function renderCharts() {
-        const hourOk = drawBars(
+        drawBars(
           document.getElementById("hourChart"),
           latestHours,
           (r) => {
             const d = new Date(r.hour_ts * 1000);
-            return `${d.getHours()}:00`;
+            return `${String(d.getHours()).padStart(2, "0")}:00`;
           },
+          "hour",
         );
-        const dayOk = drawBars(
+        drawBars(
           document.getElementById("dayChart"),
           latestDays,
           (r) => {
             const d = new Date(r.day_ts * 1000);
             return `${d.getMonth() + 1}/${d.getDate()}`;
           },
+          "day",
         );
-        document.getElementById("hourEmpty").hidden = hourOk;
-        document.getElementById("dayEmpty").hidden = dayOk;
+      }
+
+      function hideTip() {
+        const tip = document.getElementById("chartTip");
+        tip.hidden = true;
+        tip.dataset.show = "false";
+      }
+
+      function showTip(canvas, hit) {
+        const tip = document.getElementById("chartTip");
+        const seriesLabel = SERIES[activeSeries].label;
+        tip.textContent = `${hit.label} · ${seriesLabel} ${fmtWh(hit.mwh)}`;
+        tip.hidden = false;
+        tip.dataset.show = "true";
+        tip.dataset.placement = "above";
+        tip.style.setProperty("--arrow-shift", "0px");
+
+        const canvasRect = canvas.getBoundingClientRect();
+        const anchorX = canvasRect.left + hit.tipX;
+        const anchorY = canvasRect.top + hit.tipY;
+
+        // First paint above to measure, then flip/clamp if needed.
+        tip.style.left = `${anchorX}px`;
+        tip.style.top = `${anchorY}px`;
+
+        const tipRect = tip.getBoundingClientRect();
+        let placement = "above";
+        if (anchorY - tipRect.height - 12 < 8) {
+          placement = "below";
+        }
+        tip.dataset.placement = placement;
+
+        const half = tipRect.width / 2;
+        const left = Math.min(
+          window.innerWidth - half - 8,
+          Math.max(half + 8, anchorX),
+        );
+        tip.style.left = `${left}px`;
+        tip.style.top = `${anchorY}px`;
+        tip.style.setProperty("--arrow-shift", `${anchorX - left}px`);
+      }
+
+      function bindChartHover(canvasId, chartKey) {
+        const canvas = document.getElementById(canvasId);
+
+        canvas.addEventListener("mousemove", (event) => {
+          const rect = canvas.getBoundingClientRect();
+          const x = event.clientX - rect.left;
+          const y = event.clientY - rect.top;
+          const hit = chartHits[chartKey].find(
+            (bar) => x >= bar.x && x <= bar.x + bar.w && y >= bar.y && y <= bar.y + bar.h,
+          );
+          if (!hit) {
+            hideTip();
+            canvas.style.cursor = "default";
+            return;
+          }
+          canvas.style.cursor = "crosshair";
+          showTip(canvas, hit);
+        });
+
+        canvas.addEventListener("mouseleave", () => hideTip());
       }
 
       function setSeries(series) {
@@ -466,6 +623,7 @@
         for (const btn of switchEl.querySelectorAll("button")) {
           btn.setAttribute("aria-pressed", btn.dataset.series === activeSeries ? "true" : "false");
         }
+        hideTip();
         renderCharts();
       }
 
@@ -536,11 +694,18 @@
         latestDays = fillDays(data.daily);
         renderCharts();
 
-        const ageSec = live ? Math.max(0, Math.round((Date.now() - live.ts) / 1000)) : null;
+        const sampleAt = live?.ts
+          ? new Date(live.ts).toLocaleTimeString(undefined, {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false,
+            })
+          : null;
         document.getElementById("statusText").textContent =
-          ageSec == null
+          sampleAt == null
             ? "waiting for first sample"
-            : `live · sample ${ageSec}s ago · port ${location.port || "80"}`;
+            : `live · sampled ${sampleAt} · port ${location.port || "80"}`;
       }
 
       async function loop() {
@@ -556,6 +721,9 @@
         if (!btn) return;
         setSeries(btn.dataset.series);
       });
+
+      bindChartHover("hourChart", "hour");
+      bindChartHover("dayChart", "day");
 
       loop();
       setInterval(loop, 5000);
